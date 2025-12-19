@@ -1,3 +1,5 @@
+// Cài đặt dotenv: npm install dotenv [cite: 337]
+require("dotenv").config(); 
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -6,13 +8,16 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-// Kết nối MongoDB với username là MSSV, password là MSSV, dbname là it4409
+
+// Kết nối MongoDB sử dụng biến môi trường [cite: 347]
+const mongoURI = process.env.MONGO_URI;
+
 mongoose
-    .connect("mongodb+srv://20225224:oZttpEBj8Du0NJ9l@cnweb.gjgicbe.mongodb.net/?appName=CnWeb")
+    .connect(mongoURI)
     .then(() => console.log("Connected to MongoDB"))
     .catch((err) => console.error("MongoDB Error:", err));
 
-// TODO: Tạo Schema
+// Định nghĩa Schema
 const UserSchema = new mongoose.Schema({ 
     name: {
         type: String,
@@ -33,21 +38,20 @@ const UserSchema = new mongoose.Schema({
         required: [true, 'Email không được để trống'],
         unique: true,
         match: [/^\S+@\S+\.\S+$/, 'Email không hợp lệ']
-
     },
     address: {
         type: String
     }
 });
 const User = mongoose.model("User", UserSchema);
-// TODO: Implement API endpoints
+
+// API Endpoints
 app.get("/api/users", async (req, res) => { 
     try {
-        // Lấy query params
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 5;
         const search = req.query.search || "";
-        // Tạo query filter cho search
+        
         const filter = search
             ? {
             $or: [
@@ -57,18 +61,17 @@ app.get("/api/users", async (req, res) => {
             ]
             }
         : {};
-        // Tính skip
+        
         const skip = (page - 1) * limit;
-        // Query database
-        // const users = await User.find(filter)
-        //     .skip(skip)
-        //     .limit(limit);
-        // Đếm tổng số documents
+        
         const [users, total] = await Promise.all([
             User.find(filter).skip(skip).limit(limit),
             User.countDocuments(filter)
         ]);
-        // Trả về response
+
+        // Tính toán totalPages để tránh lỗi undefined
+        const totalPages = Math.ceil(total / limit);
+
         res.json({
             page,
             limit,
@@ -76,14 +79,14 @@ app.get("/api/users", async (req, res) => {
             totalPages,
             data: users
         });
-        } catch (err) {
-            res.status(500).json({ error: err.message });
-        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
 app.post("/api/users", async (req, res) => { 
     try {
         const { name, age, email, address } = req.body;
-        // Tạo user mới
         const newUser = await User.create({ name, age, email, address });
         res.status(201).json({
             message: "Tạo người dùng thành công",
@@ -93,6 +96,7 @@ app.post("/api/users", async (req, res) => {
         res.status(400).json({ error: err.message });
     }
 });
+
 app.put("/api/users/:id", async (req, res) => { 
     try {
         const { id } = req.params;
@@ -100,7 +104,7 @@ app.put("/api/users/:id", async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { name, age, email, address },
-            { new: true, runValidators: true } // Quan trọng
+            { new: true, runValidators: true }
         );
         if (!updatedUser) {
             return res.status(404).json({ error: "Không tìm thấy người dùng" });
@@ -112,8 +116,8 @@ app.put("/api/users/:id", async (req, res) => {
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
-
 });
+
 app.delete("/api/users/:id", async (req, res) => { 
     try {
         const { id } = req.params;
@@ -127,8 +131,8 @@ app.delete("/api/users/:id", async (req, res) => {
     }
 });
 
-// Start server
-app.listen(3001, () => {
-    console.log("Server running on http://localhost:3001");
+// Start server với cổng từ biến môi trường [cite: 350]
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
-
